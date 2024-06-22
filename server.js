@@ -23,7 +23,6 @@ const AUTH_OPTIONS = {
 
 function verifyCallback(accessToken, refreshToken, profile, done) {
 	console.log('Google profile', profile);
-	res.status(200);
 	done(null, profile);
 };
 

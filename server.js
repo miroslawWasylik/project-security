@@ -5,6 +5,8 @@ const express = require('express');
 const helmet = require('helmet');
 const passport = require('passport');
 const { Strategy } = require('passport-google-oauth20');
+const cookieSession = require('cookie-session');
+const { verify } = require('crypto');
 
 require('dotenv').config();
 
@@ -12,7 +14,9 @@ const PORT = 3000;
 
 const config = {
 	CLIENT_ID: process.env.CLIENT_ID,
-	CLIENT_SECRET: process.env.CLIENT_SECRET
+	CLIENT_SECRET: process.env.CLIENT_SECRET,
+	COOKIE_KEY_1: process.env.COOKIE_KEY_1,
+	COOKIE_KEY_2: process.env.COOKIE_KEY_2,
 };
 
 const AUTH_OPTIONS = {
@@ -26,12 +30,46 @@ function verifyCallback(accessToken, refreshToken, profile, done) {
 	done(null, profile);
 };
 
-passport.use(new Strategy(AUTH_OPTIONS, verifyCallback))
+passport.use(new Strategy(AUTH_OPTIONS, verifyCallback));
+
+//save cookie
+passport.serializeUser((user, done) => {
+	done(null, user.id);
+});
+
+//read cookie
+passport.deserializeUser((id, done) => {
+	// user.findById(id).then(user => {
+	// 	done(null, user);
+	// })
+	done(null, id);
+});
 
 const app = express();
 
 app.use(helmet());
+
+app.use(cookieSession({
+	name: 'session',
+	maxAge: 1000 * 60 * 60 * 24,
+	keys: [ config.COOKIE_KEY_1, config.COOKIE_KEY_2 ]
+}));
+app.use(function(request, response, next) {
+    if (request.session && !request.session.regenerate) {
+        request.session.regenerate = (cb) => {
+            cb()
+        }
+    }
+    if (request.session && !request.session.save) {
+        request.session.save = (cb) => {
+            cb()
+        }
+    }
+    next()
+});
+
 app.use(passport.initialize());
+app.use(passport.session());
 
 function checkLoggedIn(req, res, next) {
 	const isLoggedIn = true; //TODO
@@ -53,7 +91,7 @@ app.get('/auth/google/callback',
 	passport.authenticate('google', {
 		failureRedirect: '/failure',
 		successRedirect: '/',
-		session: false,
+		session: true,
 	}), 
 	(req, res) => {
 		console.log('Google called us back!');
